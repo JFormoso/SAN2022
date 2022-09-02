@@ -209,7 +209,6 @@ gt(ranova) %>%
   
 ```
 
-
 ```{r Modelo2, warning=FALSE, message=FALSE}
   # Modelo completo
 
@@ -235,9 +234,9 @@ broom::tidy(anova) %>%
 
 ```
 
-No se encontraron interacciones significativas entre la ubicación del rectángulo y la operación, lo cuál sugiere que no habría diferencias en los tiempos de respuesta en la tarea de detección asociadas a la localización del estímulo y la operación que lo precede. 
+No se encontraron interacciones significativas entre la ubicación del rectángulo y la operación, lo cuál sugiere que no habría diferencias en los tiempos de respuesta en la tarea de detección asociadas a la localización del estímulo y la operación que lo precede.
 
-Tampoco se encontraron interacciones significativas entre ubicación, operación y latencia, ni entre ubicación, operación y acarreo. 
+Tampoco se encontraron interacciones significativas entre ubicación, operación y latencia, ni entre ubicación, operación y acarreo.
 
 Por otra parte, se encontró una interacción significativa entre el tiempo de latencia y la operación.
 
@@ -297,5 +296,5 @@ Por otro lado, las diferencias en los TR en la tarea de detección asociadas a l
 
 ### Referencias
 
-::: {#refs} 
+::: {#refs}
 :::
