@@ -1,0 +1,301 @@
+---
+title: "SAN2022"
+format: html
+editor: visual
+bibliography: referencias.bib
+csl: apa6.csl
+execute: 
+  echo: false
+---
+
+## Efecto del cálculo mental sobre el desplazamiento de la atención: replicación de Liu et. al. (2017)
+
+### Introducción
+
+Distintos estudios han identificado un sesgo espacial asociado al procesamiento de información numérica. Percibir números pequeños genera un desplazamiento atencional hacia la izquierda, mientras que número grandes lo hacen hacia la derecha [puede encontrarse una revisión detallada en @fischer2014]. Resultados similares se observaron con operaciones de suma y resta [@knops2009, @masson2014, @liu2017], sin embargo, la evidencia al respecto es constradictoria.
+
+El **objetivo** del presente trabajo es replicar el estudio de @liu2017 y evaluar si la realización de una operación de suma o resta facilita la detección de estímulos presentados a derecha o izquierda, respectivamente, y si este efectp depende del nivel de dificultad de la operación o el tiempo de latencia en la presentación del estímulo.
+
+### Método
+
+#### Participantes
+
+Participaron 30 adultos de entre 18 a 30 años, hispanoparlantes, sin diagnósticos neurológicos o neuropsicológicos, ni alteraciones sensoriales visuales.
+
+#### Estímulos y procedimiento
+
+Se utilizó el **paradigma de doble tarea**, con una tarea principal de detección de estímulos y una secundaria de verificación de operaciones de suma y resta, administradas por medio de una computadora.
+
+**Detección de estímulos:**\
+Tras la apación en la pantalla de un rectángulo azul a la izquierda o derecha de un punto de fijación, el participante debía indicar su ubicación presionando las flechas del teclado lo más rápido posible. Se registró el tiempo de respuesta (TR) y si la respuesta era correcta o no.
+
+**Verificación de operaciones:** Se presentaba secuencialmente los componentes de una operación de suma o resta incluyendo el resultado. El participante debía indicar si este último era correcto presionando una flecha en el teclado. Para cada ensayo se registró si la respuesta era correcta o no.
+
+Las operaciones se fueron seleccionando al azar de un conjunto de 192 restas y 192 sumas [@glaser2020] que cumplían las siguientes condiciones:
+
+-   El primer operando era siempre mayor que el segundo;
+
+-   El tamaño medio del problema era igual para sumas y restas;
+
+-   Se equipararon la cantidad de resultados pares e impares;
+
+-   Se equipararon las cantidad de operaciones con y sin acarreo;
+
+-   Se excluyeron las operaciones con operandos iguales (ej. 23 + 23 ) o con operandos con decenas o unidades iguales (43 + 46 o 26 + 76);
+
+-   Se excluyeron las operaciones con cero o un múltiplo de 11 en sus operandos o resultados.
+
+En la figura 1 puede observarse la secuencia de presentación de ambas tareas.
+
+![Figura 1. Secuencia de presentación de la tarea de verificación y la de detección de estímulos en cada ensayo.](Figuras/Secuencia.png)
+
+Cada participante realizó 4 bloques de 10 ensayos de prueba y 36 experimentales (un total de 144 ensayos). El rectángulo a detectar se presentaba entre el segundo operando y el resultado de la operación, con variaciones en el tiempo de presentación. Una vez que el último operando desaparecía, el rectángulo podía presentarse a los 300 ms, 750 ms o 1250 ms.
+
+### Resultados
+
+```{r datos, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(mice)
+library(emmeans)
+library(multcomp)
+library(multcompView)
+library(gt)
+
+cuentas <- read_csv2("Datos/base_datos_cuentas.csv")
+cuentas$SOA <- as_factor(cuentas$SOA)
+
+```
+
+En primer lugar, se eliminaron los datos pertenecientes a participantes con menos del 70% de respuestas correctas para asegurar que se encontraban realizando la operación correspondiente al momento de la detección del rectángulo. Por el mismo motivo, se eliminaron un 12% de observaciones en que la respuesta a la operación fue incorrecta, aproximadamente la misma proporción para sumas y restas.
+
+```{r 70_correctas, warning=FALSE, message=FALSE}
+
+correctas <- cuentas %>% 
+  group_by(operacion) %>% 
+  summarise(ACC_deteccion = mean(correctas_deteccion),
+            ACC_operacion = mean(correctas_operacion)) %>% 
+  mutate_if(is.numeric, round, 2)
+
+gt(correctas) %>% 
+  cols_label(operacion = "Operación",
+             ACC_deteccion = "Detección",
+             ACC_operacion = "Operación")
+
+
+id_acc <- cuentas %>%
+  group_by(id_participantes) %>%
+  summarise(ACC_operacion = mean(correctas_operacion),
+            ACC_deteccion = mean(correctas_deteccion)) %>%
+  filter(ACC_operacion < 0.7 | ACC_deteccion < 0.7)
+
+cuentas <- cuentas %>% 
+  anti_join(id_acc, by = "id_participantes") %>% 
+  filter(correctas_deteccion == 1)
+
+
+
+```
+
+Luego, se eliminaron los outliers usando los criterios establecidos por @berger2021 por condición, aproximadamente un 3% de las observaciones.
+
+```{r outliers, warning=FALSE, message=FALSE}
+
+# Exclusión de outliers (método z-transform: Berger and Kiefer, 2021)
+# por condicion
+
+BDsuma <- cuentas %>% 
+  filter(ubicacion == "Derecha", operacion == "Suma") %>% 
+  mutate(TR_transf = sqrt((TR_deteccion - min(TR_deteccion))/(max(TR_deteccion) - min(TR_deteccion))),
+         TR_z = scale(TR_transf)[,1],
+         TR_outliers = ifelse(TR_z > 2.5 | TR_z < -2.5, 1, 0))
+
+
+BDresta <- cuentas %>% 
+  filter(ubicacion == "Derecha", operacion == "Resta") %>% 
+  mutate(TR_transf = sqrt((TR_deteccion - min(TR_deteccion))/(max(TR_deteccion) - min(TR_deteccion))),
+         TR_z = scale(TR_transf)[,1],
+         TR_outliers = ifelse(TR_z > 2.5 | TR_z < -2.5, 1, 0))
+
+
+BIsuma <- cuentas %>% 
+  filter(ubicacion == "Izquierda", operacion == "Suma") %>% 
+  mutate(TR_transf = sqrt((TR_deteccion - min(TR_deteccion))/(max(TR_deteccion) - min(TR_deteccion))),
+         TR_z = scale(TR_transf)[,1],
+         TR_outliers = ifelse(TR_z > 2.5 | TR_z < -2.5, 1, 0))
+
+
+BIresta <- cuentas %>% 
+  filter(ubicacion == "Izquierda", operacion == "Resta") %>% 
+  mutate(TR_transf = sqrt((TR_deteccion - min(TR_deteccion))/(max(TR_deteccion) - min(TR_deteccion))),
+         TR_z = scale(TR_transf)[,1],
+         TR_outliers = ifelse(TR_z > 2.5 | TR_z < -2.5, 1, 0))
+
+
+cuentas_sin_out <- rbind(BDsuma, BDresta, BIsuma, BIresta) 
+
+
+# Eliminar e imputar outliers
+cuentas_sin_out$TR_deteccion[which(cuentas_sin_out$TR_outliers == 1)] <- NA
+tempData <- mice(cuentas_sin_out, m=5, maxit=50, meth='pmm', seed=500, print = FALSE)
+cuentas <- complete(tempData, 1)
+
+
+descriptivos <- cuentas %>% 
+  group_by(ubicacion, operacion) %>% 
+  summarise_at(vars(TR_deteccion), 
+               funs(M = mean, 
+                    DE = sd,
+                    Mdn = median,
+                    RIC = IQR,
+                    prop_outliers = mean(TR_outliers))) %>% 
+  mutate_if(is.numeric, round, 2)
+
+gt(descriptivos) %>% 
+  cols_label(operacion = "Operación",
+             prop_outliers = html("Proporción<br>de outliers"))
+
+
+
+```
+
+Finalmente, ajustó un modelo lineal mixto con:
+
+-   Tiempos de reacción como variable dependiente.
+
+-   Efectos fijos:
+
+    o La operación (suma o resta).
+
+    o La ubicación del rectángulo azul (izquierda o derecha).
+
+    o El tiempo de latencia para la presentación del rectángulo (300 ms, 750 ms y 1250 ms).
+
+    o Interacciones entre los anteriores.
+
+-   Efectos aleatorios:
+
+    o Participante.
+
+    o Bloque.
+
+    o ID de la cuenta.
+
+```{r Modelo, warning=FALSE, message=FALSE}
+
+# Evaluar efectos aleatorios. Decidió no incluírse el ID de la operación. 
+
+rand_eff <- lmer(TR_deteccion ~ 1 + 
+               (1|id_participantes) + (1 | id_operacion) + (1 | id_bloque), data = cuentas)
+
+ranova <- ranova(rand_eff)
+
+ranova <- broom::tidy(ranova) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  dplyr::select(term, AIC, LRT, df, p.value)
+
+gt(ranova) %>% 
+  cols_label(term = "Efectos aleatorios",
+             df = "gl",
+             p.value = "p valor") %>% 
+  fmt_missing(
+  columns = everything(),
+  rows = everything(),
+  missing_text = ""
+)
+
+  
+```
+
+
+```{r Modelo2, warning=FALSE, message=FALSE}
+  # Modelo completo
+
+mod <- lmer(TR_deteccion ~ operacion*ubicacion*SOA*acarreo +  
+              (1|id_participantes) + (1 | id_bloque), data = cuentas)
+
+
+anova <- anova(mod)
+
+
+
+broom::tidy(anova) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  dplyr::select(term, statistic, NumDF, DenDF, p.value) %>% 
+  gt() %>% 
+  cols_label(term = "",
+             statistic = "F",
+             NumDF = "gl1",
+             DenDF = "gl2", 
+             p.value = "p valor")
+
+
+
+```
+
+No se encontraron interacciones significativas entre la ubicación del rectángulo y la operación, lo cuál sugiere que no habría diferencias en los tiempos de respuesta en la tarea de detección asociadas a la localización del estímulo y la operación que lo precede. 
+
+Tampoco se encontraron interacciones significativas entre ubicación, operación y latencia, ni entre ubicación, operación y acarreo. 
+
+Por otra parte, se encontró una interacción significativa entre el tiempo de latencia y la operación.
+
+```{r contrastes, warning=FALSE, message=FALSE}
+
+emm <- emmeans(mod, pairwise ~ ubicacion, pbkrtest.limit = 4647)
+
+emm <- emmeans(mod, pairwise ~ SOA * operacion, pbkrtest.limit = 4647)
+
+cld <- cld(object = emm,
+                       adjust = "sidak",
+                       Letters = letters,
+                       alpha = 0.05)
+
+contrastes <- data.frame(cld)
+
+gt(contrastes)
+
+
+```
+
+Al realizar comparaciones entre pares utilizando la prueba de Sidak se encontró que los TR son más altos en las restas que la sumas a los 750 ms y a los 1250 ms. A su vez, en ambas operaciones los TR son menores a los 1250 ms que a los 300 ms y a los 750 ms. En la suma, también se diferencian los TR entre la latencia de 300 ms y la de 750 ms.
+
+```{r grafico, warning=FALSE, message=FALSE}
+
+library(hrbrthemes)
+library(viridis)
+
+cols = c("300" = "black", "750" = "grey", "1250" = "#ffde59")
+
+
+contrastes %>%
+  mutate(operacion = str_to_sentence(operacion),
+         .group = as_factor(.group)) %>%  
+  ggplot(aes(operacion, emmean, fill = SOA)) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE),
+                width = 0.2, 
+                position = position_dodge(0.9),
+                size = .5) +
+  geom_bar(position = position_dodge(0.9),
+             stat = "identity") +
+  geom_text(aes(label = .group, y = emmean + SE), 
+            vjust = -0.5, position = position_dodge(0.9)) +
+  scale_fill_manual(values = cols) +
+  theme_ipsum(axis_title_size = 14) +
+  coord_cartesian(ylim = c(500, 1000)) +
+  ggtitle("") +
+  labs(x = "", y = "Tiempos de reacción (ms)", fill = "Latencia (ms)")
+
+```
+
+### Conclusiones
+
+Los resultados obtenidos no aportan evidencia a favor de la hipótesis del estudio original [@liu2017] en tanto no se detectó un desplazamiento atencional vinculado a la realización de sumas y restas (no se observaron interacciones entre la ubicación y la operación). El resultado es consistente independientemente del tiempo de latencia para la presentación del estímulo y el nivel de dificultad de la operación.
+
+Por otro lado, las diferencias en los TR en la tarea de detección asociadas a la operación podría sugerir un vínculo entre estas últimas y la atención espacial, con mayores requerimientos atencionales por parte de la resta. Esto es consistente con numerosos estudios que asocian las realización de operaciones aritméticas con habilidades espaciales, atención espacial y memoria de trabajo visoespacial [ver @hawes2020 para una revisión sistemática]. Estudios futuros al respecto deberían incluir una tarea simple de detección para obtener una medida de base.
+
+### Referencias
+
+::: {#refs} 
+:::
