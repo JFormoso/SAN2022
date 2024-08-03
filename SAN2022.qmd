@@ -1,6 +1,6 @@
 ---
 title: "SAN2022"
-format: html
+format: gfm
 editor: visual
 bibliography: referencias.bib
 csl: apa6.csl
@@ -64,6 +64,7 @@ library(multcomp)
 library(multcompView)
 library(gt)
 
+
 cuentas <- read_csv2("Datos/base_datos_cuentas.csv")
 cuentas$SOA <- as_factor(cuentas$SOA)
 
@@ -79,10 +80,10 @@ correctas <- cuentas %>%
             ACC_operacion = mean(correctas_operacion)) %>% 
   mutate_if(is.numeric, round, 2)
 
-gt(correctas) %>% 
-  cols_label(operacion = "Operación",
+knitr::kable(correctas,
+             col.names = c(operacion = "Operación",
              ACC_deteccion = "Detección",
-             ACC_operacion = "Operación")
+             ACC_operacion = "Operación"))
 
 
 id_acc <- cuentas %>%
