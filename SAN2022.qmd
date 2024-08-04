@@ -62,7 +62,7 @@ library(mice)
 library(emmeans)
 library(multcomp)
 library(multcompView)
-library(gt)
+
 
 
 cuentas <- read_csv2("Datos/base_datos_cuentas.csv")
@@ -154,9 +154,7 @@ descriptivos <- cuentas %>%
                     prop_outliers = mean(TR_outliers))) %>% 
   mutate_if(is.numeric, round, 2)
 
-gt(descriptivos) %>% 
-  cols_label(operacion = "Operación",
-             prop_outliers = html("Proporción<br>de outliers"))
+knitr::kable(descriptivos)
 
 
 
@@ -197,15 +195,7 @@ ranova <- broom::tidy(ranova) %>%
   mutate_if(is.numeric, round, 2) %>% 
   dplyr::select(term, AIC, LRT, df, p.value)
 
-gt(ranova) %>% 
-  cols_label(term = "Efectos aleatorios",
-             df = "gl",
-             p.value = "p valor") %>% 
-  fmt_missing(
-  columns = everything(),
-  rows = everything(),
-  missing_text = ""
-)
+knitr::kable(ranova)
 
   
 ```
@@ -224,12 +214,7 @@ anova <- anova(mod)
 broom::tidy(anova) %>% 
   mutate_if(is.numeric, round, 2) %>% 
   dplyr::select(term, statistic, NumDF, DenDF, p.value) %>% 
-  gt() %>% 
-  cols_label(term = "",
-             statistic = "F",
-             NumDF = "gl1",
-             DenDF = "gl2", 
-             p.value = "p valor")
+  knitr::kable()
 
 
 
@@ -254,7 +239,7 @@ cld <- cld(object = emm,
 
 contrastes <- data.frame(cld)
 
-gt(contrastes)
+knitr::kable(contrastes)
 
 
 ```
